@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -e
+
+echo "🔧 Running local CI pipeline..."
+
+# 1. Activate venv
+source starWarsApi-venv/bin/activate
+
+# 2. Ensure imports match Docker's root
+export PYTHONPATH="$(pwd)"
+
+# 3. Linting (Python)
+echo "📦 Running flake8..."
+flake8 app
+
+# 4. Security scanning
+echo "🔒 Running bandit..."
+bandit -r app
+
+# 5. Docker build
+echo "🐳 Building Docker image..."
+docker build -t mimo-local .
+
+# 6. IaC scanning (if Terraform exists)
+if [ -d "infra" ]; then
+    echo "🏗️ Running Checkov..."
+    checkov -d infra
+fi
+
+# 7. Unit + Integration + Scenario + Negative tests
+echo "🧪 Running pytest with coverage..."
+pytest --cov=app --cov-report=term-missing
+
+echo "🎉 Local CI pipeline completed successfully!"

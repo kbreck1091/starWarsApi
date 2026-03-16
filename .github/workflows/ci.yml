@@ -1,0 +1,77 @@
+name: starWarsApi CI/CD Pipeline
+
+on:
+  push:
+    branches: [ development, staging, production ]
+  pull_request:
+
+env:
+  SERVICE_NAME: starwarsapi
+  ENVIRONMENT: ${{ github.ref_name }}
+  VERSION: ${{ github.run_number }}-${{ github.sha }}
+  SHORT_SHA: ${{ github.sha }}
+  BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest pytest-cov bandit checkov
+
+      - name: Lint with flake8
+        run: flake8 app/
+
+      - name: Run tests with coverage
+        run: |
+          coverage run -m pytest
+          coverage report
+
+      - name: Security scan with Bandit
+        run: bandit -r app/
+
+      - name: IaC scan with Checkov
+        run: checkov -d starWarsApi
+
+      - name: Build Docker image with dynamic tag
+        run: |
+          docker build \
+            -t $SERVICE_NAME:${{ env.VERSION }} \
+            -t $SERVICE_NAME:latest \
+            .
+
+      - name: Upload build metadata
+        run: |
+          echo "Service: $SERVICE_NAME" > build-info.txt
+          echo "Environment: $ENVIRONMENT" >> build-info.txt
+          echo "Version: $VERSION" >> build-info.txt
+          echo "Commit: $SHORT_SHA" >> build-info.txt
+          echo "Build Number: $BUILD_NUMBER" >> build-info.txt
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SERVICE_NAME }}-${{ env.VERSION }}
+          path: build-info.txt
+
+  deploy-production:
+    if: github.ref == 'refs/heads/production'
+    needs: build-test-scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deployment placeholder
+        run: |
+          echo "Deploying $SERVICE_NAME version $VERSION to PRODUCTION..."

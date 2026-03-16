@@ -65,7 +65,13 @@ jobs:
         with:
           name: ${{ env.SERVICE_NAME }}-${{ env.VERSION }}
           path: build-info.txt
-
+  deploy-staging:
+    if: github.ref == 'refs/heads/staging'
+    needs: build-test-scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deploy to staging
+      run: echo "Deploying to staging..."
   deploy-production:
     if: github.ref == 'refs/heads/production'
     needs: build-test-scan
